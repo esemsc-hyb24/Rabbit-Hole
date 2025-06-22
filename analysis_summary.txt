@@ -8,10 +8,10 @@ Cluster 3: App Development Support (39 items)
 Cluster 0: London Restaurant Information (27 items)
   Keywords: add, info, real, london, 50, order, google, search, menu, 80, 95, 19, 10, protein, based, page, login, blog, home, free
 
-Cluster 1: Web Server Debugging (25 items)
+Cluster 1: **Web Server Debugging** (25 items)
   Keywords: view, mcp, file, reload, external, changes, debug, isn, enabled, edit, share, html, google, enable, sign, browser, javascript, server, search, ensure
 
-Cluster 2: International Web Security (9 items)
+Cluster 2: **Language & Authentication** (9 items)
   Keywords: english, email, português, español, united, français, javascript, 한국어, polski, deutsch, continue, brasil, security, session, portugal, italiano, русский, 日本語, sign, terms
 
 Sentiment Summary:

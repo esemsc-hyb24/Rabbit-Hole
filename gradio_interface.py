@@ -4,14 +4,14 @@ from pathlib import Path
 from langchain.llms import Ollama
 from langchain.prompts import PromptTemplate
 
-# === Load context from analysis summary ===
+# === Load analysis context ===
 CONTEXT_FILE = "analysis_summary.txt"
 def load_analysis_context():
-    return Path(CONTEXT_FILE).read_text() if Path(CONTEXT_FILE).exists() else "No analysis found yet."
+    return Path(CONTEXT_FILE).read_text() if Path(CONTEXT_FILE).exists() else "No analysis yet. Please run analysis."
 
 analysis_context = load_analysis_context()
 
-# === LangChain Ollama LLM setup ===
+# === LLM Setup (Ollama) ===
 llm = Ollama(model="gemma3:4b")
 chat_template = PromptTemplate.from_template(
     "You're a helpful reflection agent that nudges users toward a balanced information diet and healthy behavior.\n\n"
@@ -23,11 +23,10 @@ chat_template = PromptTemplate.from_template(
     "Response:"
 )
 
-# === Action for Analyze Button ===
+# === Action for "Analyze" Button ===
 def run_analysis():
     try:
         subprocess.run(["python", "rabbit_hole_analysis.py"], check=True)
-        # Reload context after analysis
         global analysis_context
         analysis_context = load_analysis_context()
         return (
@@ -36,38 +35,98 @@ def run_analysis():
             "topics_pie.png",
             "sentiment_pie.png"
         )
-    except subprocess.CalledProcessError:
-        return ("❌ Analysis failed. Check the script output.", None, None, None)
+    except subprocess.CalledProcessError as e:
+        return ("❌ Analysis failed. See terminal for details.", None, None, None)
 
-# === LLM Chat Handler ===
+# === Chatbot Handler ===
 def chat(user_input, history):
-    prompt = chat_template.format(context=analysis_context, user_input=user_input)
-    response = llm.invoke(prompt)
-    history.append((user_input, response.strip()))
+    # Build conversation string
+    conversation = ""
+    for i, (user_msg, bot_reply) in enumerate(history):
+        conversation += f"User: {user_msg}\nAssistant: {bot_reply}\n"
+    conversation += f"User: {user_input}\nAssistant:"
+
+    # Final prompt with system + analysis context
+    full_prompt = (
+        "You're a helpful reflection agent that nudges users toward a balanced information diet and healthy behavior.\n\n"
+        f"Here is the user's media/search analysis context:\n{analysis_context}\n\n"
+        "Here is the current conversation:\n"
+        f"{conversation}"
+    )
+
+    response = llm.invoke(full_prompt).strip()
+    history.append((user_input, response))
     return history, history
 
-# === Gradio Interface ===
-with gr.Blocks() as demo:
+with gr.Blocks(css="""
+.primary-button {
+    font-size: 18px;
+    padding: 12px 24px;
+    background: linear-gradient(to right, #3a7bd5, #00d2ff);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    margin-top: 20px;
+}
+
+.gradio-container {
+    max-width: 1100px;
+    margin: auto;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #111;   /* dark background */
+    color: white;             /* global text color */
+}
+
+h1, h2, h3, h4, h5, h6, p, label {
+    color: white !important;
+}
+""") as demo:
+    
     gr.Markdown("# 🕳️ Rabbit Hole")
     gr.Markdown("""
-    **Rabbit Hole** analyzes your search and content consumption to reveal topic focus, sentiment balance,
-    and potential biases. Press **Analyze** to begin, then chat with the reflection agent below.
+    **Rabbit Hole** is your media reflection tool. It analyzes your recent searches and reading habits to detect:
+    
+    - Topic concentration
+    - Emotional tone
+    - Possible "echo chambers"
+
+    After analysis, chat with our agent to get balance tips or fresh perspectives.
     """)
 
-    with gr.Row():
-        analyze_btn = gr.Button("🔍 Analyze")
-        status = gr.Textbox(label="Status")
+    # Analysis button
+    analyze_btn = gr.Button("🐇 Run Analysis", elem_classes="primary-button")
+    status = gr.Textbox(label="Status", interactive=False)
 
+    # === Plot section ===
+
+    # Cluster map (single full-width)
+    gr.Markdown("### 🧭 Cluster Map")
+    img1 = gr.Image(value="placeholder.png", label="Cluster Map", show_download_button=True)
+
+    # Topic + Sentiment pie charts side-by-side
+    gr.Markdown("### 📊 Topic & Sentiment Breakdown")
     with gr.Row():
-        img1 = gr.Image(label="Cluster Map")
-        img2 = gr.Image(label="Topic Distribution")
-        img3 = gr.Image(label="Sentiment Distribution")
+        img2 = gr.Image(value="placeholder.png", label="Topic Distribution", show_download_button=True)
+        img3 = gr.Image(value="placeholder.png", label="Sentiment Breakdown", show_download_button=True)
 
     analyze_btn.click(fn=run_analysis, outputs=[status, img1, img2, img3])
 
+    # Chat section
     gr.Markdown("### 🤖 Reflection Agent")
-    chatbot = gr.Chatbot(label="Your Info Balance Assistant")
-    msg = gr.Textbox(label="Ask or reflect...", placeholder="e.g., I feel overwhelmed by AI news lately.")
-    msg.submit(chat, [msg, chatbot], [chatbot, chatbot])
+    gr.Markdown("_Talk about how you’ve been consuming media, or just ask for feedback..._")
+
+    chatbot = gr.Chatbot(label="Your Info Balance Assistant", height=350)
+    msg = gr.Textbox(
+        label="Enter your message...",
+        lines=2,
+        placeholder="e.g. I've been focused on AI collapse stories... should I worry?"
+    )
+    submit_btn = gr.Button("Submit")
+
+    # Enable both Enter and button
+    msg.submit(fn=chat, inputs=[msg, chatbot], outputs=[chatbot, chatbot])
+    submit_btn.click(fn=chat, inputs=[msg, chatbot], outputs=[chatbot, chatbot])
+
+    gr.Markdown("— built with ❤️ and 🐇 by your hackathon team")
 
 demo.launch()
