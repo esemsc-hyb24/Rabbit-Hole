@@ -1,0 +1,18 @@
+{
+    "manifest_version": 3,
+    "name": "AI Browsing Monitor",
+    "version": "1.1",
+    "permissions": [
+      "history",
+      "storage",
+      "tabs"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup.html"
+    },
+    "description": "Detects troubling browsing patterns and alerts users."
+  }
+  
